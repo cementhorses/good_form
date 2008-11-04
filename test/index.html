@@ -1,0 +1,353 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <title>GoodForm unit test file</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <script src="jsunittest.js" type="text/javascript"></script>
+    <script src="../good_form.js" type="text/javascript"></script>
+
+    <link rel="stylesheet" href="unittest.css" type="text/css"/>
+</head>
+<body>
+
+<div id="content">
+    <div id="header">
+        <h1>GoodForm unit test file</h1>
+        <p>
+            This file tests <strong>good_form.js</strong>.
+        </p>
+    </div>
+
+    <!-- Log output -->
+    <div id="testlog"></div>
+
+    <div id="inputs" style="display: none;">
+        <input type="text" name="field" value="" id="field"/>
+        <span id="field_validation"></span>
+        <input type="text" name="field_confirmation" value="" id="field_confirmation"/>
+        <input type="checkbox" name="box" value="1" id="box"/>
+        <input type="checkbox" name="box[group][]" value="1" id="checkbox_1"/>
+        <input type="checkbox" name="box[group][]" value="2" id="checkbox_2"/>
+        <input type="checkbox" name="box[group][]" value="3" id="checkbox_3"/>
+    </div>
+</div>
+
+<script type="text/javascript">
+// <![CDATA[
+var textField = document.getElementById("field");
+var textFieldConfirmation = document.getElementById("field_confirmation");
+var checkBox = document.getElementById("box");
+var checkBoxGroup = document.getElementsByName("box[group][]");
+
+new Test.Unit.Runner({
+
+    setup: function () {},
+
+    teardown: function () {
+        textField.value = "";
+        textFieldConfirmation.value = "";
+        checkBox.checked = false;
+        checkBoxGroup[0].checked = false;
+        checkBoxGroup[1].checked = false;
+        checkBoxGroup[2].checked = false;
+        GoodForm.local = {};
+        GoodForm.remote = {};
+    },
+
+    testShouldDelegateOptions: function () { with (this) {
+        Validates.Presence(textField, { attribute: true });
+        var validation = GoodForm.local["field"].pop();
+        assert(validation.attribute);
+        assertUndefined(validation.undefinedAttribute); 
+    }},
+
+    testShouldRegisterValidation: function () { with(this) {
+        assertUndefined(GoodForm.local["field"]);
+        Validates.Presence(textField);
+        assert(GoodForm.local["field"]);
+    }},
+
+    // Test order shouldn't matter, but here it does. Alternative: remove nodes
+    // from document at teardown.
+    testShouldBuildValidationSpan: function () { with(this) {
+        assertNull(document.getElementById("box_validation"));
+        Validates.Presence("box");
+        Validate("box");
+        assertNotNull(document.getElementById("box_validation"));
+    }},
+
+    testShouldValidateAcceptance: function () { with(this) {
+        Validates.Acceptance("box");
+        assert(!Validate("box"))
+        assertEqual(GoodForm.defaultErrorMessages.accepted, GoodForm.Validate.response.box);
+        checkBox.checked = true;
+        assert(Validate("box"));
+        assertEqual(GoodForm.validMessage, GoodForm.Validate.response.box)
+    }},
+
+    testShouldValidateAcceptanceWithOtherValue: function () { with(this) {
+        Validates.Acceptance(textField, { accept: "accepted" });
+        assert(!Validate(textField));
+        field.value = "accepted";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateConfirmation: function () { with(this) {
+        Validates.Confirmation(textField);
+        assert(Validate(textFieldConfirmation));
+        textFieldConfirmation.value = "different";
+        assert(!Validate(textFieldConfirmation));
+        assertEqual(GoodForm.defaultErrorMessages.confirmation, GoodForm.Validate.response.field_confirmation);
+    }},
+
+    testShouldValidateExclusion: function () { with(this) {
+        Validates.Exclusion(textField, { "in": ["A", "B", "C"] });
+        assert(Validate(textField));
+        textField.value = "A";
+        assert(!Validate(textField));
+        assertEqual(GoodForm.defaultErrorMessages.exclusion, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateFormat: function () { with(this) {
+        Validates.Format(textField, { "with": /monk?ey/i });
+        assert(!Validate(textField));
+        assertEqual(GoodForm.defaultErrorMessages.invalid, GoodForm.Validate.response.field);
+        textField.value = "money";
+        assert(Validate(textField));
+        textField.value = "MONKEY";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateInclusion: function () { with(this) {
+        Validates.Inclusion(textField, { "in": ["X", "Y", "Z"] });
+        assert(!Validate(textField));
+        assertEqual(GoodForm.defaultErrorMessages.inclusion, GoodForm.Validate.response.field);
+        textField.value = "Z";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateLengthMinimum: function () { with(this) {
+        var length = 6;
+        Validates.Length(textField, { minimum: length });
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.tooShort.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "enough";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateLengthMaximum: function () { with(this) {
+        var length = 32;
+        Validates.Length(textField, { maximum: length });
+        assert(Validate(textField));
+        textField.value = "supercalifragilisticexpialidocious";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.tooLong.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateLengthWithin: function () { with(this) {
+        var within = [8, 12];
+        Validates.Length(textField, { within: within });
+        var tooShort = GoodForm.defaultErrorMessages.tooShort.replace(/%d/, within[0]);
+        var tooLong = GoodForm.defaultErrorMessages.tooLong.replace(/%d/, within[1]);
+        assert(!Validate(textField))
+        assertEqual(tooShort, GoodForm.Validate.response.field);
+        textField.value += "James Bond"
+        assert(Validate(textField))
+        textField.value += ", Jr."
+        assert(!Validate(textField))
+        assertEqual(tooLong, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateLengthIn: function () { with(this) {
+        var within = [8, 12];
+        Validates.Length(textField, { "in": within });
+        var tooShort = GoodForm.defaultErrorMessages.tooShort.replace(/%d/, within[0]);
+        var tooLong = GoodForm.defaultErrorMessages.tooLong.replace(/%d/, within[1]);
+        assert(!Validate(textField))
+        assertEqual(tooShort, GoodForm.Validate.response.field);
+        textField.value += "James Bond"
+        assert(Validate(textField))
+        textField.value += ", Jr."
+        assert(!Validate(textField))
+        assertEqual(tooLong, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateLengthIs: function () { with(this) {
+        var length = 16;
+        Validates.Length(textField, { is: 16 });
+        assert(!Validate(textField))
+        var errorMessage = GoodForm.defaultErrorMessages.wrongLength.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "Whatever Is Fine";
+        assert(Validate(textField));
+        textField.value += ", Right?";
+        assert(!Validate(textField));
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateArrayLength: function () { with(this) {
+        Validates.Length("box[group][]", { is: 2 });
+        assert(!Validate("box[group][]"));
+        checkBoxGroup[0].checked = true;
+        assert(!Validate("box[group][]"));
+        checkBoxGroup[1].checked = true;
+        assert(Validate("box[group][]"));
+    }},
+
+    testShouldValidateNumericality: function () { with(this) {
+        Validates.Numericality(textField);
+        assert(!Validate(textField));
+        textField.value = "1.25 here, but not a number";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.notANumber;
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "1.25";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateIntegers: function () { with(this) {
+        Validates.Numericality(textField, { onlyInteger: true });
+        textField.value = "1.25";
+        assert(!Validate(textField));
+        textField.value = "125";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateGreaterThan: function () { with(this) {
+        var length = 21;
+        Validates.Numericality(textField, { greaterThan: length });
+        textField.value = "21";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.greaterThan.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "22";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateGreaterThanOrEqualTo: function () { with(this) {
+        var length = 21;
+        Validates.Numericality(textField, { greaterThanOrEqualTo: length });
+        textField.value = "21";
+        assert(Validate(textField));
+        textField.value = "20";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.greaterThanOrEqualTo.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateEqualTo: function () { with(this) {
+        var length = 21;
+        Validates.Numericality(textField, { equalTo: length });
+        textField.value = "2";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.equalTo.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value += "1";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateLessThan: function () { with(this) {
+        var length = 21;
+        Validates.Numericality(textField, { lessThan: length });
+        textField.value = "21";
+        assert(!Validate(textField))
+        var errorMessage = GoodForm.defaultErrorMessages.lessThan.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "20";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateLessThanOrEqualTo: function () { with(this) {
+        var length = 21;
+        Validates.Numericality(textField, { lessThanOrEqualTo: length });
+        textField.value = "21";
+        assert(Validate(textField));
+        textField.value = "22";
+        assert(!Validate(textField))
+        var errorMessage = GoodForm.defaultErrorMessages.lessThanOrEqualTo.replace(/%d/, length);
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateOdd: function () { with(this) {
+        Validates.Numericality(textField, { odd: true });
+        textField.value = "1";
+        assert(Validate(textField));
+        textField.value = "2";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.odd;
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+    }},
+
+    testShouldValidateEven: function () { with(this) {
+        Validates.Numericality(textField, { even: true });
+        textField.value = "1";
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.even;
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "2";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidatePresence: function () { with(this) {
+        Validates.Presence(textField);
+        assert(!Validate(textField));
+        var errorMessage = GoodForm.defaultErrorMessages.blank;
+        assertEqual(errorMessage, GoodForm.Validate.response.field);
+        textField.value = "Something";
+        assert(Validate(textField));
+    }},
+
+    testSizeShouldAliasToLength: function () { with(this) {
+        Validates.Size(textField, { is: 16 });
+        assertNotUndefined(GoodForm.local["field"]);
+    }},
+
+    testShouldAcceptId: function() { with(this) {
+        Validates.Presence("field");
+        assertNotUndefined(GoodForm.local["field"]);
+        textField.value = "Something Else";
+        assert("field");
+    }},
+
+    testShouldAllowNull: function () { with(this) {
+        Validates.Format(textField, { "with": /[YN]{1}/, allowNull: true });
+        assert(Validate(textField));
+        textField.value = "test";
+        assert(!Validate(textField));
+        textField.value = "    ";
+        assert(!Validate(textField));
+    }},
+
+    testShouldAllowBlank: function () { with(this) {
+        Validates.Format(textField, { "with": /[YN]{1}/, allowBlank: true });
+        assert(Validate(textField));
+        textField.value = "test";
+        assert(!Validate(textField));
+        textField.value = "    ";
+        assert(Validate(textField));
+    }},
+
+    testShouldValidateDefaultEffect: function () { with(this) {
+        Validates.Presence("field");
+        Validate("field");
+        assertEqual(GoodForm.defaultErrorMessages.blank, document.getElementById("field_validation").innerHTML);
+    }},
+
+    testShouldValidateMultiple: function () { with(this) {
+        Validates.Presence("field", "field_confirmation");
+        var errorResponse = Validate.All();
+        assert(!errorResponse);
+        assertEqual(GoodForm.defaultErrorMessages.blank, GoodForm.Validate.response["field"]);
+        assertEqual(GoodForm.defaultErrorMessages.blank, GoodForm.Validate.response["field_confirmation"]);
+    }},
+
+    // TODO: Ajax testing.
+
+}, { testLog: 'testlog' });
+// ]]>
+</script>
+</body>
+</html>

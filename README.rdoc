@@ -1,0 +1,46 @@
+= GoodForm
+
+http://github.com/cementhorses/good_form
+
+A JavaScript version of Active Record's validation suite.
+
+
+== Features
+
+* Library-agnostic!
+* Unit-tested!
+* Ajax and client-side validations.
+
+
+== Example
+
+Ready!
+
+  <script src="good_form.js" type="text/javascript"></script>
+
+Set!
+
+  Validates.Presence("login", "email", "password", "password_confirmation");
+  Validates.Length("login", "email", { maximum: 32, allowBlank: true });
+  Validates.Format("email", { withOption: /^([^@\s]+)@((?:[-a-z0-9]+\.)+[a-z]{2,})$/i, allowBlank: true });
+  Validates.Confirmation("password", { allowBlank: true });
+
+Go!
+
+  Validate.All();
+
+Slow...
+
+  Validate("login");
+
+See the inline documentation for way more info.
+
+
+== TODO
+
+* Make sure everything is A-OK across the browser board (tested in WebKit).
+* How about some granularity? Some callbacks?
+
+
+Copyright (c) 2008-* Stephen Celis. Released by Cement Horses under the MIT
+License.
